@@ -55,52 +55,21 @@ def bcPlaylist(playlist_url):
         print("Status code: %s", response.status_code)
         print(f"The Album/Track requested does not exist at: {url}")
         return None, None
-
-    # save_json(response.text)
-    # return None, None
     
     try:
         soup = bs4.BeautifulSoup(response.text, "lxml")
     except bs4.FeatureNotFound:
         soup = bs4.BeautifulSoup(response.text, "html.parser")
 
-    # save_json(soup)
-    # return None, None
-
-    # print(" Generating BandcampJSON..")
     bandcamp_json = BandcampJSON(soup, False).generate()
     page_json = {}
     for entry in bandcamp_json:
         page_json = {**page_json, **json.loads(entry)}
-    # print(" BandcampJSON generated..")
-
-    # playlist = page_json
-
-    # result = subprocess.run(["bandcamp-dl", "-j", playlist_url], capture_output=True, text=True)
-    # if result.returncode == 0:
-    #     print("Command executed successfully")
-    # else:
-    #     print("Command failed")
-
-    # playlist = json.loads(result.stdout)
-
-    # save_json(page_json)
-    # return None, None
-    # with open("file.json", "w") as output_file:
-    #     subprocess.run(["yt-dlp", "-J", "playlist-link"], stdout=output_file, text=True)
-
-    # path to json file output of `yt-dlp -J 'playlist-link' > file.json`
-    # with open(path) as file:
-    #     playlist = json(file)
 
     if not (tracklist := traverse(page_json, ['track', 'itemListElement'])):
         print("No tracks found in the playlist.")
         return None, None
 
-    # try:
-    #     album_title = page_json['current']['title']
-    # except KeyError:
-    #     album_title = page_json['trackinfo'][0]['title']
     thumbnailUrl = page_json.get('image')
 
     playlistRecord = {
@@ -117,22 +86,6 @@ def bcPlaylist(playlist_url):
     }
 
     print_json(playlistRecord)
-    # if "track" in page_json['url']:
-    #     artist_url = page_json['url'].rpartition('/track/')[0]
-    # else:
-    #     artist_url = page_json['url'].rpartition('/album/')[0]
-
-    # artist = page_json['artist']
-
-    # for track in self.tracks:
-    #     if lyrics:
-    #         track['lyrics'] = self.get_track_lyrics(f"{artist_url}"
-    #                                                 f"{track['title_link']}#lyrics")
-    #     if track['file'] is not None:
-    #         track = self.get_track_metadata(track)
-    #         album['tracks'].append(track)
-
-    # album['full'] = self.all_tracks_available()
 
     uploaderInfo = {
         "name": traverse(page_json, ['artist'], ['byArtist', 'name'], ['publisher', 'name']),
@@ -152,7 +105,6 @@ def bcPlaylist(playlist_url):
             "uploader": uploaderInfo,
             "thumbnail": thumbnailUrl,
             "duration": round(trackinfo['duration']),
-            # "description": track.get('description'),
             "lyrics": traverse(track, ['recordingOf', 'lyrics', 'text']),
             "url": traverse(track, ['@id'], ['mainEntityOfPage']),
             "id": traverse(track, ['additionalProperty', {'name': 'track_id'}, 'value']),
@@ -161,7 +113,6 @@ def bcPlaylist(playlist_url):
         }
         print_json(record)
         tracks.append(record)
-    # return None, None
     return playlistRecord, tracks
 
 def scPlaylist(playlist_url):
@@ -230,13 +181,6 @@ def ytPlaylist(playlist_url):
         print("Command failed")
 
     playlist = json.loads(result.stdout)
-
-    # with open("file.json", "w") as output_file:
-    #     subprocess.run(["yt-dlp", "-J", "playlist-link"], stdout=output_file, text=True)
-
-    # path to json file output of `yt-dlp -J 'playlist-link' > file.json`
-    # with open(path) as file:
-    #     playlist = json(file)
 
     if not playlist.get('entries'):
         print("No tracks found in the playlist.")
@@ -343,10 +287,8 @@ def main():
     session = get_session(did, PASSWORD, service)
 
     if len(sys.argv) < 1:
-        # print("Please input a URL as argument")
         playlist_url = input('Input a URL: ')
         if playlist_url == '': return
-        # return
     else:
         playlist_url = sys.argv[1]
 
