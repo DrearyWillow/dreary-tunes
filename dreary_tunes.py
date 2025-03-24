@@ -244,7 +244,6 @@ def findOrCreatePlaylistUri(playlistRecord, did, session, service):
     if not playlistRecord: return None
 
     print("Searching for existing playlist record matches...")
-
     existingPlaylistRecords = list_records(did, service, "dev.dreary.tunes.playlist")
 
     for p in existingPlaylistRecords:
@@ -253,33 +252,9 @@ def findOrCreatePlaylistUri(playlistRecord, did, session, service):
             playlistUri = p['uri']
             print('No playlist record creation')
             break
-
     else:
         playlistUri = create_record(session, service, 'dev.dreary.tunes.playlist', playlistRecord)
-
     return playlistUri
-
-def findOrCreateTrackUri(track, trackRecords, session, service):
-    for t in trackRecords:
-        if track.get('url') == traverse(t, ['value', 'url']):
-            print('Existing match for track record found')
-            return t.get('uri')
-    return create_record(session, service, 'dev.dreary.tunes.track', track)
-
-def findMatchingTrack(track, trackRecords):
-    for t in trackRecords:
-        if track.get('url') == traverse(t, ['value', 'url']):
-            print('Existing match for track record found')
-            return t.get('uri')
-    return None
-    # return traverse(trackRecords, ['value', {'url': track.get('url')}, 'uri'])
-
-def playlistItemMatch(trackUri, playlistUri, playlistItemRecords):
-    for p in playlistItemRecords:
-        if trackUri == traverse(p, ['value', 'track']) and playlistUri == traverse(p, ['value', 'playlist']):
-            print('Existing match for playlistitem record found')
-            return p.get('uri')
-    return None
 
 def split_list(lst, chunk_size):
     return [lst[i:i + chunk_size] for i in range(0, len(lst), chunk_size)]
@@ -296,13 +271,6 @@ def applyWrites(session, service, writeRecords):
     return uri
 
 def filterTrackUri(playlistItemRecords, playlistUri, trackUris):
-    # uri = []
-    # for p in playlistItemRecords:
-    #     if (traverse(p, ['value', 'track']) in trackUris) and (traverse(p, ['value', 'playlist']) == playlistUri):
-    #         uri.append(p.get('uri'))
-    # return uri
-    # traverse(playlistItemRecords, [{'value': {'playlist': playlistUri, 'track': trackUris}}, 'uri'], get_all=True, default=[])
-    # filteredItems = filterPlaylistItems(playlistItemRecords, playlistUri, trackUris, returnUri=True)
     filteredItems = traverse(playlistItemRecords, ['value', {'playlist': playlistUri, 'track': trackUris}, 'track'], get_all=True, default=[])
     return [t for t in trackUris if t not in filteredItems]
     
@@ -354,19 +322,6 @@ def main():
         else:
             writes.append(track)
 
-    # writes = []
-    # trackUris = []
-    # for track in tracks:
-    #     trackUri = findMatchingTrack(track, trackRecords)
-    #     if trackUri:
-    #         trackUris.append(trackUri)
-    #     else:
-    #         writes.append(track)
-
-    # trackUris.extend(traverse(trackRecords, ['value', {'url': track.get('url')}, 'uri'], get_all=True, default=[]))
-
-    # trackUris = [*(traverse(trackRecords, ['value', {'url': traverse(tracks, ['url'])}, 'uri'], get_all=True, default=[]))]
-    # writes = [*(traverse(trackRecords, ['value', {'url': not traverse(tracks, ['url'])}, 'uri'], get_all=True, default=[]))]
     if writes:
         trackUris.extend(applyWrites(session, service, writes))
         print("Track applyWrites complete")
@@ -375,19 +330,15 @@ def main():
 
     print("Retrieving existing playlistitem records...")
     playlistItemRecords = list_records(did, service, "dev.dreary.tunes.playlistitem")
-    # playlistItemRecords = [p for p in playlistItemRecords if playlistUri == traverse(p, ['value', 'playlist'])]
 
-    writes = []
     # get current playlist count to keep index consistent.
     # this doesn't really work and i'm still not convinced the field is a good idea
     # plus it makes the playlist check in removeMatchingPlaylistItems redundant and we loop twice but w/e
     # ordered lists in atproto are kinda just ugly rn tbh, appview could always use createdAt to break tie but then why even bother
-    # playlistRecordCount = len(playlistItemRecords := traverse(playlistItemRecords, ['value', {'playlist': playlistUri}, 'uri'], get_all=True, default=[]))
-    # print(playlistItemRecords)
     playlistRecordCount = len(playlistItemRecords := filterPlaylistItems(playlistItemRecords, playlistUri))
     trackUris = filterTrackUri(playlistItemRecords, playlistUri, trackUris)
-
     index = playlistRecordCount
+    writes = []
     for trackUri in trackUris:
         index += 1
         writes.append({
@@ -402,29 +353,6 @@ def main():
         print("playlistitem applyWrites complete")
     else:
         print("No playlistitem record creation required")
-
-    # index = 0
-    # for track in tracks:
-    #     index += 1
-    #     # replace with apply_writes_create
-    #     # findTrackUri, if trackUri add to create block... but that won't work because i need to make a playlistitem referencing the rkey
-    #     # i could make deterministic rkeys but thats bad and i dont wanna
-    #     # could at least bundle the playlistitems into a createrecord?
-    #     # or maybe i could get creative with the response from createRecords?
-    #     # the only way that works is if i trust that the order of the list is sequential, which seems, erm. bad.
-    #     trackUri = findOrCreateTrackUri(track, trackRecords, session, service)
-    #     if not trackUri:
-    #         continue
-    #     if playlistItemMatch(trackUri, playlistUri, playlistItemRecords):
-    #         continue
-    #     item = {
-    #         "$type": "dev.dreary.tunes.playlistitem",
-    #         "playlist": playlistUri,
-    #         "track": trackUri,
-    #         "createdAt": generate_timestamp(),
-    #         "index": index
-    #     }
-    #     create_record(session, service, 'dev.dreary.tunes.playlistitem', item)
 
 if __name__ == "__main__":
     main()
