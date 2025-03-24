@@ -9,8 +9,14 @@ youtube, soundcloud, bandcamp playlist links should work. attempts to not dedupe
 * support reading from file, not just url
 * cli for picking existing playlists
 * adding individual tracks, not just mirroring playlists
-* something a little more elegant than config.json for auth lol
+* something a little more elegant than `config.json` for auth lol
+* applyWrites (split_list)
+* fix camelCase and snake_case lol
+* yield, not return, existing records
+* proper arguments
+* delete all records helper
 * caching
+* implement debug mode for print_json
 * not gonna make an appview bro you can't make me
 
 ## Acknowledgements
