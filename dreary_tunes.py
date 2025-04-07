@@ -259,13 +259,28 @@ def findOrCreatePlaylistUri(playlistRecord, did, session, service):
 def split_list(lst, chunk_size):
     return [lst[i:i + chunk_size] for i in range(0, len(lst), chunk_size)]
 
-def applyWrites(session, service, writeRecords):
-    if len(writeRecords) == 0: return []
+
+def applyWrites(session, service, records):
+    if len(records) == 0: return []
+
+    writes = []
+    for record in records:
+        if record['$type'].split('#')[0] == 'com.atproto.repo.applyWrites':
+            # if the record is an applyWrites record, use it directly
+            # this allows for non-creation writes
+            writes.append(record)
+        else:
+            writes.append({
+                "$type": "com.atproto.repo.applyWrites#create",
+                "collection": record['$type'],
+                "value": record,
+            })
+
     uri = []
-    split = split_list(writeRecords, 200)
+    split = split_list(writes, 200)
     l = len(split)
     for i, records in enumerate(split):
-        response = apply_writes_create(session, service, records)
+        response = apply_writes(session, service, records)
         uri.extend(traverse(response, ['results', 'uri'], get_all=True) or [])
         print(f"{i+1}/{l} applyWrites complete")
     return uri
@@ -273,15 +288,6 @@ def applyWrites(session, service, writeRecords):
 def filterTrackUri(playlistItemRecords, playlistUri, trackUris):
     filteredItems = traverse(playlistItemRecords, ['value', {'playlist': playlistUri, 'track': trackUris}, 'track'], get_all=True, default=[])
     return [t for t in trackUris if t not in filteredItems]
-    
-def filterPlaylistItems(playlistItemRecords, playlistUri, trackUris=None, returnUri=False):
-    filterObj = {'value': {'playlist': playlistUri}}
-    if trackUris:
-        filterObj['value']['track'] = trackUris
-    path = [filterObj]
-    if returnUri:
-        path.append('uri')
-    return traverse(playlistItemRecords, path, get_all=True, default=[])
 
 def main():
     with open('config.json') as f:
@@ -331,23 +337,38 @@ def main():
     print("Retrieving existing playlistitem records...")
     playlistItemRecords = list_records(did, service, "dev.dreary.tunes.playlistitem")
 
-    # get current playlist count to keep index consistent.
-    # this doesn't really work and i'm still not convinced the field is a good idea
-    # plus it makes the playlist check in removeMatchingPlaylistItems redundant and we loop twice but w/e
-    # ordered lists in atproto are kinda just ugly rn tbh, appview could always use createdAt to break tie but then why even bother
-    playlistRecordCount = len(playlistItemRecords := filterPlaylistItems(playlistItemRecords, playlistUri))
+    finalPlaylistItem = traverse(playlistItemRecords, [{'value': {'playlist': playlistUri, 'nodes': {'nextUri': None}}}])
     trackUris = filterTrackUri(playlistItemRecords, playlistUri, trackUris)
-    index = playlistRecordCount
+    lastIndex = len(trackUris) - 1
     writes = []
-    for trackUri in trackUris:
-        index += 1
+    for i, trackUri in enumerate(trackUris):
+
+        previousUri = None
+        if finalPlaylistItem:
+            previousUri = finalPlaylistItem['uri']
+            finalPlaylistItem = finalPlaylistItem['value']
+            finalPlaylistItem['nodes']['nextUri'] = trackUri
+            writes.append({
+                "$type": "com.atproto.repo.applyWrites#update",
+                "collection": "dev.dreary.tunes.playlistitem",
+                "rkey": decompose_uri(previousUri)[2],
+                "value": finalPlaylistItem,
+            })
+            finalPlaylistItem = None
+        else:
+            previousUri = trackUris[i-1] if i > 0 else None
+
         writes.append({
             "$type": "dev.dreary.tunes.playlistitem",
             "playlist": playlistUri,
             "track": trackUri,
             "createdAt": generate_timestamp(),
-            "index": index
+            "nodes": {
+                "previousUri": previousUri,
+                "nextUri": trackUris[i+1] if i < lastIndex else None
+            }
         })
+
     if writes:
         applyWrites(session, service, writes)
         print("playlistitem applyWrites complete")

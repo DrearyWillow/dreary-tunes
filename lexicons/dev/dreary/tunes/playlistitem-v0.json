@@ -14,10 +14,7 @@
             "playlist": { "type": "string", "format": "at-uri" },
             "track": { "type": "string", "format": "at-uri" },
             "createdAt": { "type": "string", "format": "datetime" },
-            "nodes": {
-                "previousUri": { "type": "string", "format": "at-uri" },
-                "nextUri": { "type": "string", "format": "at-uri" }
-            }
+            "index": { "type": "int", "description": "Playlist position index" }
         }
     }
     }
