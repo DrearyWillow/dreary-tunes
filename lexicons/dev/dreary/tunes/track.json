@@ -1,6 +1,6 @@
 {
     "lexicon": 1,
-    "id": "app.bsky.graph.track",
+    "id": "dev.dreary.tunes.track",
     "defs": {
     "main": {
     "type": "record",
