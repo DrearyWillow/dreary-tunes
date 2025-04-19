@@ -302,7 +302,7 @@ def main():
     service = get_service_endpoint(did)
     session = get_session(did, PASSWORD, service)
 
-    if len(sys.argv) < 1:
+    if len(sys.argv) < 2:
         playlist_url = input('Input a URL: ')
         if playlist_url == '': return
     else:
